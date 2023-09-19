@@ -1,20 +1,22 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { useNotificationDispatch } from '../notificationContext';
 
 const AnecdoteForm = () => {
   const queryClient = useQueryClient();
+  const dispatch = useNotificationDispatch();
 
   const newAnecdoteMutation = useMutation({
     mutationFn: async (newAnecdote) => {
       if (newAnecdote.content.length < 5) {
-        return;
-      } else {
-        const response = await axios.post(
-          'http://localhost:3001/anecdotes',
-          newAnecdote
-        );
-        return response.data;
+        throw new Error('too short anecdote, must have length 5 or more');
       }
+
+      const response = await axios.post(
+        'http://localhost:3001/anecdotes',
+        newAnecdote
+      );
+      return response.data;
     },
     onSuccess: (newAnecdote) => {
       const anecdotes = queryClient.getQueryData({ queryKey: ['anecdotes'] });
@@ -32,7 +34,20 @@ const AnecdoteForm = () => {
     console.log('new anecdote');
     const id = Number(Math.random() * 100000).toFixed(0);
     const newAnecdote = { content, id, votes: 0 };
-    newAnecdoteMutation.mutate(newAnecdote);
+    newAnecdoteMutation.mutate(newAnecdote, {
+      onSuccess: () => {
+        dispatch({ type: 'CREATE', payload: content });
+        setTimeout(() => {
+          dispatch({ type: 'CLEAR' });
+        }, 5000);
+      },
+      onError: (error) => {
+        dispatch({ type: 'ERROR', payload: error.message });
+        setTimeout(() => {
+          dispatch({ type: 'CLEAR' });
+        }, 5000);
+      },
+    });
   };
 
   return (
